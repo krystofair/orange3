@@ -14,6 +14,11 @@
         <img src="https://img.shields.io/discord/633376992607076354?logo=discord&color=7389D8&logoColor=white&label=Discord">                                                                                                                                                                                                                                                  </a>
 </p>
 
+# Branch "alternative"
+This branch has my personal modification, but If you encounter of it and claim that
+this should be in major version that. Let me know or faster major contributors. ;)
+
+
 # Orange Data Mining
 [Orange] is a data mining and visualization toolbox for novice and expert alike. To explore data with Orange, one requires __no programming or in-depth mathematical knowledge__. We believe that workflow-based data science tools democratize data science by hiding complex underlying mechanics and exposing intuitive concepts. Anyone who owns data, or is motivated to peek into data, should have the means to do so.
 
