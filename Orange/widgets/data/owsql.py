@@ -58,6 +58,8 @@ class OWSql(OWBaseSql):
     guess_values = Setting(True)
     download = Setting(False)
 
+    path_to_res_file = Setting("")
+
     materialize = Setting(False)
     materialize_table_name = Setting("")
 
@@ -69,6 +71,8 @@ class OWSql(OWBaseSql):
 
     class Error(OWBaseSql.Error):
         no_backends = Msg("Please install a backend to use this widget.")
+        file_os_error = Msg("File doesn't exist or you don't have read permission.")
+        empty_path = Msg("Path cannot be empty.")
 
     def __init__(self):
         # Lint
@@ -78,6 +82,8 @@ class OWSql(OWBaseSql):
         self.tablecombo = None
         self.sqltext = None
         self.custom_sql = None
+        self.file_controls = None
+        self.file_queries = {}  # not None to be checkable right away
         self.downloadcb = None
         super().__init__()
 
@@ -85,6 +91,63 @@ class OWSql(OWBaseSql):
         super()._setup_gui()
         self._add_backend_controls()
         self._add_tables_controls()
+
+    def _load_tables_from_file(self):
+        if not self.path_to_res_file:
+            self.Error.empty_path()
+            return
+        self.Error.empty_path.clear()
+        try:
+            selects = self._parse_sql_resource_file(self.path_to_res_file)
+        except OSError:
+            self.Error.file_os_error()
+        else:
+            self.Error.file_os_error.clear()
+            self.file_queries.update(selects)
+            self.refresh_tables()
+
+    def _parse_sql_resource_file(self, filename):
+        """throws `OSError` - file may be unable to open"""
+        import re, os
+        # for simple queries this will work, assume that user can only SELECT from.
+        selects = {}  # name:query
+        # This order is precious:
+        name_pattern = re.compile("^-- name:(.*)$")
+        ignore_line = re.compile("^--.*")
+        start_query = re.compile("^SELECT|select")
+        stop_query = re.compile(";$");
+        # lambda to uni transformation
+        trn = lambda x: str(x).strip().upper()
+        def delete_comments(line):
+            return line[:line.find('--')]
+        with open(self.path_to_res_file, 'r', encoding='utf-8') as resfile:
+            name = None
+            query = []
+            while line := resfile.readline():
+                # Name as first line, will be overriden when line duplicate
+                if n := name_pattern.search(line):
+                    name = n.group(1)
+                # ignore comment lines
+                elif ignore_line.match(line):
+                    continue
+                # oneline query has start and stop in single line
+                elif start_query.search(line) and stop_query.search(line):
+                    selects[trn(name)] = line
+                    name = None
+                # another if-tree,
+                # start analyzing lines as query
+                if start_query.search(line) and name is not None:
+                    query.append(line)  # sets state of appending consecutive lines
+                elif stop_query.search(line) and name is not None:
+                    query.append(line)  # add last line
+                    # process query
+                    selects[trn(name)] = ' '.join(map(delete_comments, query))
+                    query = []  # reset state
+                    name = None
+                # query is not empty - means query is loading as consecutive lines
+                elif query:
+                    query.append(line)
+        return selects
 
     def _add_backend_controls(self):
         box = self.serverbox
@@ -105,6 +168,15 @@ class OWSql(OWBaseSql):
         backend = self.get_backend()
         self.selected_backend = backend.display_name if backend else None
 
+    def _add_file_controls(self, box):
+        self.file_controls = gui.vBox(box)
+        self.file_controls.setVisible(False)
+        mt = gui.hBox(self.file_controls)
+        le = gui.lineEdit(mt, self, 'path_to_res_file')
+        le.setToolTip('Path to file you load queries from. Be careful with choose.')
+        load = gui.button(self.file_controls, self, 'Load tables from file',
+                          callback=self._load_tables_from_file)
+
     def _add_tables_controls(self):
         vbox = gui.vBox(self.controlArea, "Tables")
         box = gui.vBox(vbox)
@@ -119,13 +191,17 @@ class OWSql(OWBaseSql):
         self.tablecombo.activated[int].connect(self.select_table)
         box.layout().addWidget(self.tablecombo)
 
+        self._add_file_controls(box)
+
         self.custom_sql = gui.vBox(box)
         self.custom_sql.setVisible(False)
         self.sqltext = QTextEdit(self.custom_sql)
         self.sqltext.setPlainText(self.sql)
         self.custom_sql.layout().addWidget(self.sqltext)
 
+
         mt = gui.hBox(self.custom_sql)
+
         cb = gui.checkBox(mt, self, 'materialize', 'Materialize to table ')
         cb.setToolTip('Save results of the query in a table')
         le = gui.lineEdit(mt, self, 'materialize_table_name')
@@ -187,6 +263,8 @@ class OWSql(OWBaseSql):
 
         self.tables.append("Select a table")
         self.tables.append("Custom SQL")
+        self.file_controls.setVisible(True)
+        self.tables.extend(self.file_queries.keys())
         self.tables.extend(self.backend.list_tables(self.schema))
         index = self.tablecombo.findText(str(self.table))
         self.tablecombo.setCurrentIndex(index if index != -1 else 0)
@@ -195,7 +273,9 @@ class OWSql(OWBaseSql):
     # Called on tablecombo selection change:
     def select_table(self):
         curIdx = self.tablecombo.currentIndex()
-        if self.tablecombo.itemText(curIdx) != "Custom SQL":
+        table_name = self.tablecombo.itemText(curIdx)
+
+        if table_name != "Custom SQL" and not table_name in self.file_queries:
             self.custom_sql.setVisible(False)
             return self.open_table()
         else:
@@ -203,9 +283,14 @@ class OWSql(OWBaseSql):
             self.data_desc_table = None
             self.database_desc["Table"] = "(None)"
             self.table = None
-            if len(str(self.sql)) > 14:
-                return self.open_table()
+            if table_name in self.file_queries:
+                self.sqltext.setPlainText(self.file_queries[table_name])
+            # repaint custom_sql with loaded query
+            # ivokes custom query automatically or file query - disabled.
+            # if len(str(self.sql)) > 14:
+            #     return self.open_table()
         return None
+
 
     def get_table(self):
         curIdx = self.tablecombo.currentIndex()
@@ -215,7 +300,13 @@ class OWSql(OWBaseSql):
             self.data_desc_table = None
             return None
 
-        if self.tablecombo.itemText(curIdx) != "Custom SQL":
+        if self.tablecombo.itemText(curIdx) in self.file_queries:
+            self.table = self.tables[self.tablecombo.currentIndex()]
+            self.database_desc["Table"] = "Loaded from File"
+            # from textarea, because of possible modifications
+            # and sqltext is loaded from :meth:`select_table`
+            what = self.sql = self.sqltext.toPlainText()
+        elif self.tablecombo.itemText(curIdx) != "Custom SQL":
             self.table = self.tables[self.tablecombo.currentIndex()]
             self.database_desc["Table"] = self.table
             if "Query" in self.database_desc:
