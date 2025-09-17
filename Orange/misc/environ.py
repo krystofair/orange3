@@ -16,7 +16,7 @@ orangerc.cfg
 
 .. code-block:: cfg
 
-    # An exemple orangerc.cfg file
+    # An example orangerc.cfg file
     # ----------------------------
     #
     # A number of variables are predefined:
