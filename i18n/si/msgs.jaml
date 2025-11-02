@@ -2166,6 +2166,10 @@ evaluation/scoring.py:
             abstract: false
             name: false
             long_name: false
+    class `Score`:
+        def `from_predicted`:
+            def `as_scalar`:
+                len(e) > 1: false
     class `CA`:
         CA: Točnost
         Classification accuracy: Klasifikacijska točnost
@@ -4703,11 +4707,15 @@ widgets/data/owcorrelations.py:
         def `items`:
             Pearson correlation: Pearsonova korelacija
             Spearman correlation: Spearmanova korelacija
+    class `KMeansCorrelationHeuristic`:
+        def `_impute_means`:
+            ignore: false
     class `CorrelationRank`:
         def `row_for_state`:
             name: false
             :: true
-            {:+.3f}: false
+            N/A: ?
+            {score[1]:+.3f}: false
     class `OWCorrelations`:
         Correlations: Korelacije
         Compute all pairwise attribute correlations.: Izračuna korelacije med vsemi pari spremenljivk.
@@ -4721,15 +4729,22 @@ widgets/data/owcorrelations.py:
             Correlations: Korelacije
         class `Information`:
             Constant features have been removed.: Konstantne spremenljivke so odstranjene.
-        class `Warning`:
+        class `Error`:
             At least two numeric features are needed.: Potrebni sta vsaj dve številski spremenljivki.
             At least two instances are needed.: Potrebna sta vsaj dva primera.
         def `__init__`:
             correlation_type: false
             (All combinations): (Vse kombinacije)
             feature: false
+            impute_missing: false
+            Impute missing values: Nadomesti manjkajoče vrednosti
+            Replace missing values with means;\n: Nadomesti manjkajoče vrednosti s povprečji;\n
+            if disabled, rows with missing values for the corre: v nasprotnem primeru so vrstice z manjkajočimi vrednos
+            sponding variables are ignored: tmi teh spremenljivk izključene
         def `set_data`:
             removed: false
+        def `set_actual_data`:
+            mean: false
         def `commit`:
             Correlation: Korelacije
             uncorrected p: nepopravljen p
@@ -4739,6 +4754,10 @@ widgets/data/owcorrelations.py:
             Correlations: Korelacije
         def `migrate_context`:
             selection: false
+    def `mock_data`:
+        a: false
+        abc: false
+        defghij: false
     __main__: false
     iris: false
 widgets/data/owcreateclass.py:
@@ -6190,7 +6209,7 @@ widgets/data/owfeaturestatistics.py:
     __main__: false
     iris: false
 widgets/data/owfile.py:
-    Automatically detect type: Samodejno zaznaj vrsto datoteke
+    Determine type from the file extension: Določi vrsto iz končnice datoteke
     def `add_origin`:
         type: false
         origin: false
@@ -6225,8 +6244,10 @@ widgets/data/owfile.py:
         class `Error`:
             File not found.: Datoteka ni najdena.
             Missing reader.: Bralnik za ta tip ne obstaja.
+            Select file type.: Izberite vrsto datoteke.
             Error listing available sheets.: Napaka ob ustvarjanju seznama listov.
             Read error:\n{}: Napaka ob branju:\n{}
+            Read error, possibly due to incorrect choice of file type:\n{}: Napaka ob branju, morda zaradi napačne izbire vrste datoteke:\n{}
         'Use CSV File Import widget for advanced options ': 'Uporabi Bralnik CSV za napredne možnosti '
         for comma-separated files: za datoteke ločene z vejico
         use-csv-file-import: falxe
@@ -6261,10 +6282,11 @@ widgets/data/owfile.py:
             File: Datoteka
             Cannot find the directory with documentation datasets: Ne najdem mape s podatki iz dokumentacije
             ~/: false
+            *: false
         def `load_data`:
             No data.: Ni podatkov.
         def `_get_reader`:
-            Can not find reader "{qname}": Bralnik "{qname}" ne obstaja.
+            Can not find reader "{qname}": Ne najdem bralnika "{qname}"
         def `_describe`:
             attributes: false
             Name: Ime
@@ -11778,6 +11800,8 @@ widgets/unsupervised/owmanifoldlearning.py:
             must be greater than [n_components: false
             ' * (n_components + 3) / 2]': false
             {}: false
+        def `_create_output_table`:
+            C{}: false
         def `send_report`:
             Method: Metoda
             Number of components: Število komponent
@@ -14986,6 +15010,8 @@ widgets/visualize/owsieve.py:
         class `Outputs`:
             Selected Data: Izbrani podatki
         canvas: false
+        class `Warning`:
+            Data does not meet the Cochran's rule\n{}: Podatki ne ustrezajo Cochranovemu pravilu\n{}
         def `__init__`:
             attr_x: false
             \u2717: true
@@ -15024,6 +15050,10 @@ widgets/visualize/owsieve.py:
             Feature {} has no values: Spremenljivka {} nima znanih vrednosti.
             χ²={:.2f}, p={:.3f}: true
             'N = ': true
+        def `_check_cochran`:
+            no cells in contingency table: kontingenčna tabela nima celic
+            some expected frequencies are below 1: nekatere pričakovane pogostosti so manjše od 1
+            more than 20% of expected frequencies are below 5: več kot 20 % pričakovanih pogostosti je manjših od 5
         def `get_widget_name_extension`:
             {} vs {}: {} in {}
     __main__: false
