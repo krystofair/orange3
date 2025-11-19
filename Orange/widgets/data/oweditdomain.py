@@ -6,6 +6,8 @@ A widget for manual editing of a domain's attributes.
 
 """
 from __future__ import annotations
+
+import re
 import warnings
 from xml.sax.saxutils import escape
 from itertools import zip_longest, repeat, chain, groupby
@@ -44,6 +46,8 @@ from orangewidget.utils.listview import ListViewSearch
 
 import Orange.data
 
+from Orange.data import to_datetime
+from Orange.data.io_util import first_non_natstr, guess_datetime_format
 from Orange.preprocess.transformation import (
     Transformation, Identity, Lookup, MappingTransform
 )
@@ -65,7 +69,29 @@ V = TypeVar("V", bound=Orange.data.Variable)  # pylint: disable=invalid-name
 H = TypeVar("H", bound=Hashable)  # pylint: disable=invalid-name
 
 MAX_HINTS = 1000
-
+CUSTOM_TOOLTIP = """%a  Weekday abbreviated name
+%A  Weekday full name
+%w  Weekday as a number (0=Sunday, 6=Saturday)
+%d  Day of the month (01-31)
+%b  Month abbreviated name
+%B  Month full name
+%m  Month as a number (01-12)
+%y  Year without century (00-99)
+%Y  Year with century
+%H  Hour (00-23)
+%I  Hour (01-12)
+%p  AM or PM
+%M  Minute (00-59)
+%S  Second (00-59)
+%f  Microsecond (000000-999999)
+%z  UTC offset in the form +HHMM or -HHMM
+%Z  Time zone name
+%j  Day of the year (001-366)
+%U  Week number of the year (Sunday as the first day of the week)
+%W  Week number of the year (Monday as the first day of the week)
+%c  Locale's appropriate date and time representation
+%x  Locale's appropriate date representation
+%X  Locale's appropriate time representation"""
 
 class _DataType:
     def __eq__(self, other):
@@ -1524,6 +1550,7 @@ class ContinuousVariableEditor(VariableEditor):
 
 
 class TimeVariableEditor(VariableEditor):
+    CUSTOM_FORMAT_LABEL = "Custom format"
     def __init__(self, parent=None, **kwargs):
         super().__init__(parent, **kwargs)
         form = self.layout().itemAt(0)
@@ -1533,28 +1560,63 @@ class TimeVariableEditor(VariableEditor):
             Orange.data.TimeVariable.ADDITIONAL_FORMATS.items()
         ):
             self.format_cb.addItem(item, StrpTime(item, *data))
+        self.format_cb.addItem(self.CUSTOM_FORMAT_LABEL)
         self.format_cb.currentIndexChanged.connect(self.variable_changed)
+        self.custom_edit = QLineEdit(objectName="custom-format-line-edit")
+        self.custom_edit.setPlaceholderText("%Y-%m-%d %H:%M:%S")
+        self.custom_edit.setToolTip(CUSTOM_TOOLTIP)
+        self.custom_edit.editingFinished.connect(self._on_custom_change)
         form.insertRow(2, "Format:", self.format_cb)
+        form.insertRow(3, "Custom format:", self.custom_edit)
+
+    def _set_format_enable(self, enable: bool):
+        self.format_cb.setEnabled(enable)
+        self.custom_edit.setEnabled(enable)
 
     def set_data(self, var, transform=()):
         super().set_data(var, transform)
         if self.parent() is not None and isinstance(self.parent().var, (Time, Real)):
             # when transforming from time to time disable format selection combo
-            self.format_cb.setEnabled(False)
+            self._set_format_enable(False)
         else:
             # select the format from StrpTime transform
             for tr in transform:
                 if isinstance(tr, StrpTime):
-                    index = self.format_cb.findText(tr.label)
-                    self.format_cb.setCurrentIndex(index)
-            self.format_cb.setEnabled(True)
+                    if tr.label is not None:
+                        index = self.format_cb.findText(tr.label)
+                        self.format_cb.setCurrentIndex(index)
+                    elif tr.formats and tr.formats[0] is not None:
+                        self.custom_edit.setText(tr.formats[0])
+                        self.format_cb.setCurrentIndex(self.format_cb.count() - 1)
+                    else:
+                        self.format_cb.setCurrentIndex(0)
+            self._set_format_enable(True)
 
     def get_data(self):
         var, tr = super().get_data()
         if var is not None and (self.parent() is None or not isinstance(self.parent().var, Time)):
             # do not add StrpTime when transforming from time to time
-            tr.insert(0, self.format_cb.currentData())
+            if self.format_cb.currentText() == self.CUSTOM_FORMAT_LABEL:
+                custom_text = self.custom_edit.text()
+                date_pat = r"%(-?)d|%(b|B)|%(-?)m|%(y|Y)|%(-?)j|%(-?)U|%(-?)W|%(a|A)|%w"
+                time_pat = r"%(-?)H|%(-?)I|%p|%(-?)M|%(-?)S|%f"
+                have_date = int(bool(re.search(date_pat, custom_text)))
+                have_time = int(bool(re.search(time_pat, custom_text)))
+                # this is done to ensure that the custom format is correct
+                if not have_date and not have_time:
+                    trf = StrpTime(None, (None,), have_date, have_time)
+                else:
+                    trf = StrpTime(None, (custom_text,), have_date, have_time)
+            else:
+                trf = self.format_cb.currentData()
+            tr.insert(0, trf)
         return var, tr
+
+    def _on_custom_change(self):
+        if self.format_cb.currentText() != self.CUSTOM_FORMAT_LABEL:
+            self.format_cb.setCurrentIndex(self.format_cb.count() - 1)
+        else:
+            self.variable_changed.emit()
 
 
 def variable_icon(var):
@@ -3041,10 +3103,7 @@ class ToStringTransform(Transformation):
     def transform(self, c):
         if self.variable.is_string:
             return c
-        elif self.variable.is_discrete or self.variable.is_time:
-            r = column_str_repr(self.variable, c)
-        elif self.variable.is_continuous:
-            r = as_string(c)
+        r = column_str_repr(self.variable, c)
         mask = orange_isna(self.variable, c)
         return np.where(mask, "", r)
 
@@ -3067,13 +3126,17 @@ class ToContinuousTransform(Transformation):
             raise TypeError
 
 
-def datetime_to_epoch(dti: pd.DatetimeIndex, only_time) -> np.ndarray:
-    """Convert datetime to epoch"""
-    # when dti has timezone info also the subtracted timestamp must have it
-    # otherwise subtracting fails
-    initial_ts = pd.Timestamp("1970-01-01", tz=None if dti.tz is None else "UTC")
-    delta = dti - (dti.normalize() if only_time else initial_ts)
-    return (delta / pd.Timedelta("1s")).values
+def datetime64_to_epoch(dt: np.ndarray,  only_time) -> np.ndarray:
+    """Convert datetime64 to seconds from epoch"""
+    data = dt.astype("M8[us]")
+    mask = np.isnat(data)
+    if only_time:
+        days = data.astype("M8[D]")
+        delta = data - days
+        data = np.datetime64("1970-01-01") + delta
+    data = data.astype(np.float64) / 1e6
+    data[mask] = np.nan
+    return data
 
 
 class ReparseTimeTransform(Transformation):
@@ -3088,9 +3151,15 @@ class ReparseTimeTransform(Transformation):
         # if self.formats is none guess format option is selected
         formats = list(self.tr.formats) if self.tr.formats is not None else []
         for f in formats + [None]:
-            d = pd.to_datetime(c, errors="coerce", format=f)
-            if pd.notnull(d).any():
-                return datetime_to_epoch(d, only_time=not self.tr.have_date)
+            if f is None:
+                idx = first_non_natstr(c)
+                if idx is not None:
+                    f = guess_datetime_format(c[idx])
+            if f is None:
+                continue
+            d = to_datetime(c, f, errors="coerce")
+            if (~np.isnat(d)).any():
+                return datetime64_to_epoch(d, only_time=not self.tr.have_date)
         return np.nan
 
 
