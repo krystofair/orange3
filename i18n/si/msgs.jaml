@@ -1363,6 +1363,7 @@ data/pandas_compat.py:
     def `table_to_frame`:
         def `_column_to_series`:
             s: false
+            M8[us]: false
     def `amend_table_with_frame`:
         'Leading dimension mismatch ': false
         (not {arr.shape[0]} == {df.shape[0]}): false
@@ -1446,6 +1447,9 @@ data/table.py:
             metas: false
             weights: false
         def `_update_locks`:
+            csr: false
+            csc: false
+            coo: false
             Unsupported sparse data type: false
         def `unlocked`:
             "'{name}' is a view into another table ": false
@@ -1570,6 +1574,8 @@ data/table.py:
         def `ninstances`:
             shape: false
         Leading dimension mismatch (%d != %d): false
+        csr: false
+        csc: false
         Array contains infinity.: false
     def `_check_inf`:
         AllFloat: false
@@ -6498,13 +6504,16 @@ widgets/data/owfile.py:
             Format: Oblika
             Data: Podatki
             Resource: Vir
+        def `migrate_settings`:
+            recent_paths: false
+            active_path: false
     class `OWFileDropHandler`:
         def `canDropUrl`:
             http: false
             https: false
             ftp: false
         def `parametersFromUrl`:
-            recent_paths: false
+            active_path: false
             source: false
             recent_urls: false
     __main__: false
@@ -6790,15 +6799,6 @@ widgets/data/owmergedata.py:
     tests/data-gender-region: false
     tests/data-regions: false
 widgets/data/owneighbors.py:
-    Euclidean: Evklidska
-    Manhattan: Manhattanska
-    Mahalanobis: Mahalanobisova
-    Cosine: Kosinusna
-    Jaccard: Jaccardova
-    Spearman: Spearmanova
-    Absolute Spearman: Absolutna Spearmanova
-    Pearson: Pearsonova
-    Absolute Pearson: Absolutna Pearsonova
     class `OWNeighbors`:
         Neighbors: Sosedi
         Compute nearest neighbors in data according to reference.: Poišči najbližje sosede referenčnih primerov.
@@ -6816,20 +6816,27 @@ widgets/data/owneighbors.py:
             Reference instances are not considered as neighbours.: Referenčni primeri niso šteti za sosede.
         class `Warning`:
             Every data instance is same as some reference: Vsi podatki se pojavijo tudi med referenčnimi.
+            Missing values were imputed: Manjkajoče vrednosti so bile nadomeščene
         class `Error`:
             Data and reference have different features: Podatki in referenčni podatki so opisani z različnimi značilkami.
         def `__init__`:
-            distance_index: false
+            _distance_index: false
             'Distance metric: ': 'Vrsta razdalje: '
             n_neighbors: false
             Limit number of neighbors to:: Omeji število sosedov na:
             limit_neighbors: false
             include_reference: false
             Include reference example: Vključi referenčni primer
+        def `compute_distances`:
+            impute: false
+            normalize: false
         def `commit`:
             ' (neighbors)': ' (sosedi)'
         def `_data_with_similarity`:
             distance: false
+        def `migrate_settings`:
+            distance_index: false
+            metric_id: false
     __main__: false
     iris.tab: false
 widgets/data/owoutliers.py:
@@ -7851,6 +7858,7 @@ widgets/data/owrank.py:
     scorer: false
     problem_type: false
     is_default: false
+    id: false
     Information Gain: Informacijski prispevek
     Info. gain: Inf. prisp
     Information Gain Ratio: Delež inform. prispevka
@@ -7918,9 +7926,9 @@ widgets/data/owrank.py:
         def `migrate_settings`:
             headerState: false
             sorting: false
+            selected_methods: false
     __main__: false
     heart_disease.tab: false
-    Learner: false
 widgets/data/owsave.py:
     ~{os.sep}: false
     class `OWSave`:
@@ -10383,11 +10391,14 @@ widgets/model/owloadmodel.py:
             Open Model File: Odpri datoteko z modelom
         def `open_file`:
             rb: false
+        def `migrate_settings`:
+            recent_paths: false
+            active_path: false
     class `OWLoadModelDropHandler`:
         def `canDropFile`:
             .pkcls: false
         def `parametersFromFile`:
-            recent_paths: false
+            active_path: false
     __main__: false
 widgets/model/owlogisticregression.py:
     class `OWLogisticRegression`:
@@ -11399,9 +11410,12 @@ widgets/unsupervised/owdistancefile.py:
         def `send_report`:
             No data was loaded.: Podatki niso naloženi.
             File name: Ime datoteke
+        def `migrate_settings`:
+            recent_paths: false
+            active_path: false
     class `OWDistanceFileDropHandler`:
         def `parametersFromFile`:
-            recent_paths: false
+            active_path: false
         def `canDropFile`:
             .dst: false
             .xlsx: false
@@ -11498,29 +11512,6 @@ widgets/unsupervised/owdistancematrix.py:
     __main__: false
     zoo: false
 widgets/unsupervised/owdistances.py:
-    Euclidean (normalized): Evklidska (normalizirana)
-    Square root of summed difference between normalized values: Kvadratni koren vsote razlik med normaliziranimi vrednostmi
-    Euclidean: Evklidska
-    Square root of summed difference between values: Kvadratni koren vsote razlik med vrednostmi
-    Manhattan (normalized): Manhattanska (normalizirana)
-    Sum of absolute differences between normalized values: Vsota absolutnih razlik med normaliziranimi vrednostmi
-    Manhattan: Manhattanska
-    Sum of absolute differences between values: Vsota absolutnih razlik med vrednostmi
-    Mahalanobis: Mahalanobisova
-    Mahalanobis distance: Mahalanobisova razdalja
-    Hamming: Hammingova
-    Hamming distance: Hammingova razdalja
-    Cosine: kosinusna
-    Cosine distance: kosinusna razdalja
-    Pearson: Pearsonova
-    Pearson correlation; distance = 1 - ρ/2: Pearsonova korelacija; razdalja = 1 - ρ/2
-    Pearson (absolute): Pearsonova (absolutna)
-    Absolute value of Pearson correlation; distance = 1 - |ρ|: Absolutna vrednost Pearsonove korelacije; razdalja = 1 - |ρ|
-    Spearman: Spearmanova
-    Spearman correlation; distance = 1 - ρ/2: Spearmanova korelacija; razdalja = 1 - ρ/2
-    Spearman (absolute): Spearmanova (absolutna)
-    Jaccard: Jaccardova
-    Jaccard distance: Jaccardova razdalja
     class `DistanceRunner`:
         def `run`:
             Calculating...: Računam ...
@@ -12494,6 +12485,30 @@ widgets/unsupervised/owtsne.py:
             attr_label: false
     __main__: false
     iris: false
+widgets/unsupervised/utils.py:
+      Euclidean (normalized): Evklidska (normalizirana)
+      Square root of summed difference between normalized values: Kvadratni koren vsote razlik med normaliziranimi vrednostmi
+      Euclidean: Evklidska
+      Square root of summed difference between values: Kvadratni koren vsote razlik med vrednostmi
+      Manhattan (normalized): Manhattanska (normalizirana)
+      Sum of absolute differences between normalized values: Vsota absolutnih razlik med normaliziranimi vrednostmi
+      Manhattan: Manhattanska
+      Sum of absolute differences between values: Vsota absolutnih razlik med vrednostmi
+      Mahalanobis: Mahalanobisova
+      Mahalanobis distance: Mahalanobisova razdalja
+      Hamming: Hammingova
+      Hamming distance: Hammingova razdalja
+      Cosine: kosinusna
+      Cosine distance: kosinusna razdalja
+      Pearson: Pearsonova
+      Pearson correlation; distance = 1 - ρ/2: Pearsonova korelacija; razdalja = 1 - ρ/2
+      Pearson (absolute): Pearsonova (absolutna)
+      Absolute value of Pearson correlation; distance = 1 - |ρ|: Absolutna vrednost Pearsonove korelacije; razdalja = 1 - |ρ|
+      Spearman: Spearmanova
+      Spearman correlation; distance = 1 - ρ/2: Spearmanova korelacija; razdalja = 1 - ρ/2
+      Spearman (absolute): Spearmanova (absolutna)
+      Jaccard: Jaccardova
+      Jaccard distance: Jaccardova razdalja
 widgets/utils/PDFExporter.py:
     PDFExporter: false
 widgets/utils/SVGExporter.py:
@@ -13018,6 +13033,7 @@ widgets/utils/itemmodels.py:
         def `discrete_variable_tooltip`:
             '<b>%s</b><br/>Categorical with %i values: ': '<b>%s</b><br/>Kategorična, %i vrednost(i): '
             ', ': false
+            ' (%i more)': ' (in še %i)'
             %r: false
         def `time_variable_toltip`:
             <b>%s</b><br/>Time: <b>%s</b><br/>Časovna
@@ -13958,6 +13974,7 @@ widgets/visualize/owbarplot.py:
         def `__init__`:
             bottom: false
             left: false
+            layout_: false
         def `update_axes`:
             left: false
             bottom: false
@@ -15139,6 +15156,8 @@ widgets/visualize/owscatterplot.py:
     iris: false
 widgets/visualize/owscatterplotgraph.py:
     class `LegendItem`:
+        def `__init__`:
+            layout_: false
         def `addItem`:
             left: false
     class `ScatterPlotItem`:
@@ -15347,6 +15366,7 @@ widgets/visualize/owsilhouetteplot.py:
             {} instance{s} omitted (undefined distances): {} primer(ov) je izpuščenih (nedefinirana razdalja)
             Ignoring categorical features: Ignoriram kategorične spremenljivke
         def `__init__`:
+            Info: Podatki
             Distance: Razdalja
             distance_idx: false
             Grouping: Skupine
@@ -15366,6 +15386,9 @@ widgets/visualize/owsilhouetteplot.py:
             Input matrix does not have associated data: Matrika razdalj ne vsebuje podatkov.
         def `_ensure_matrix`:
             invalid state: false
+        def `_update_avg_silhouette`:
+            'Average Silhouette: {avg_score:.4f}': 'Povprečna silhueta: {avg_score:.4f}'
+            'Average Silhouette: N/A': 'Povprečna silhueta:'
         def `_update`:
             precomputed: false
             s: false
@@ -15806,6 +15829,8 @@ widgets/visualize/utils/customizableplot.py:
         Dot line: Pikčasta črta
         Dash dot line: Črta - pika
         Dash dot dot line: Črta - pika - pika
+        def `plot_title_resize`:
+            layout_: false
         def `update_axes_titles_font`:
             foreground: false
             normal: false
